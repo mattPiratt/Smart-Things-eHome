@@ -2,7 +2,7 @@ package smartapps.mattPiratt
 /**
  *  eHome pyServer Manager
  *
- *  Copyright 2016 iBeech
+ *  Copyright 2018 Bartosz Kubek
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -16,9 +16,9 @@ package smartapps.mattPiratt
  */
 definition(
         name: "eHome Basement",
-        namespace: "ehome",
-        author: "bkubek",
-        description: "Add each eHome Relay as an individual thing.",
+        namespace: "mattPiratt",
+        author: "Bartosz Kubek",
+        description: "Smart App for eHome basement controller.",
         category: "Safety & Security",
         iconUrl: "http://download.easyicon.net/png/1161404/64/",
         iconX2Url: "http://download.easyicon.net/png/1161404/128/",
