@@ -16,7 +16,7 @@ package devicetypes.mattPiratt
  */
 
 metadata {
-    definition (name: "eHome Basement Relay", namespace: "ehome", author: "bkubek") {
+    definition (name: "eHome Basement Relay", namespace: "mattPiratt", author: "Bartosz Kubek") {
         capability "Switch"
         capability "Refresh"
         capability "Polling"
