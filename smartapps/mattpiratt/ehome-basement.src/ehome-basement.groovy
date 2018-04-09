@@ -35,7 +35,7 @@ preferences {
 //    section("Device 1") {
 //        input "deviceName1", "text", title: "Device Name", required:false
 //        input "deviceType1", "enum", title: "Device Type", required: false, options: [
-//                "":"eHome Relay",
+//                "switch":"eHome Relay",
 //                "temperatureSensor":"eHome Temperature Sensor"]
 //    }
 //    section("Device 2") {
@@ -131,7 +131,7 @@ def setupVirtualRelay(deviceName, deviceType, deviceConfig) {
         switch(deviceType) {
             case "switch":
                 log.trace "Setting up a eHome Basement Relay called $deviceName with Device ID #$deviceConfig"
-                def d = addChildDevice("ehome", "eHome Basement Relay", getRelayID(deviceConfig), theHub.id, [label:deviceName, name:deviceName])
+                def d = addChildDevice("mattPiratt", "eHome Basement Relay", getRelayID(deviceConfig), theHub.id, [label:deviceName, name:deviceName])
                 subscribe(d, "switch", switchChange)
 
                 log.debug "Setting initial state of $gpioName to off"
@@ -141,7 +141,7 @@ def setupVirtualRelay(deviceName, deviceType, deviceConfig) {
 
             case "temperatureSensor":
                 log.trace "Found a temperature sensor called $deviceName on $deviceConfig"
-                def d = addChildDevice("ehomes", "pyServer Temperature Sensor", getTemperatureID(deviceConfig), theHub.id, [label:deviceName, name:deviceName])
+                def d = addChildDevice("mattPiratt", "eHome Temperature Sensor", getTemperatureID(deviceConfig), theHub.id, [label:deviceName, name:deviceName])
                 state.temperatureZone = deviceConfig
                 updateTempratureSensor();
                 break;
