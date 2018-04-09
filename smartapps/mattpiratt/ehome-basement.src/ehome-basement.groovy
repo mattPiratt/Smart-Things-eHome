@@ -1,4 +1,3 @@
-package smartapps.mattpiratt
 /**
  *  eHome pyServer Manager
  *

@@ -1,4 +1,3 @@
-package devicetypes.mattpiratt
 /**
  *  eHome Basement Relay
  *
