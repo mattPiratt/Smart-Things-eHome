@@ -60,8 +60,10 @@ def initialize() {
 
     subscribe(location, null, response, [filterEvents:false])
 
-    setupVirtualRelay(deviceName1, deviceType1, deviceConfig1);
-//    setupVirtualRelay(deviceName2, deviceType2, deviceConfig2);
+//    setupVirtualRelay(deviceName1, deviceType1, deviceConfig1);
+    setupVirtualRelay("Hot water pump", "switch", 1, "off");
+    setupVirtualRelay("Floor heating pump", "switch", 2, "on");
+    setupVirtualRelay("Radiators pump", "switch", 3, "on");
 }
 
 def updated() {
@@ -70,15 +72,15 @@ def updated() {
     updateRelayState();
     unsubscribe();
 
-    updateVirtualRelay("Hot water pump", "switch", 1);
-    updateVirtualRelay("Floor heating pump", "switch", 2);
-    updateVirtualRelay("Radiators pump", "switch", 3);
 //    updateVirtualRelay(deviceName2, deviceType2, deviceConfig2);
+    updateVirtualRelay("Hot water pump", "switch", 1, "off");
+    updateVirtualRelay("Floor heating pump", "switch", 2, "on");
+    updateVirtualRelay("Radiators pump", "switch", 3, "on");
 
     subscribe(location, null, response, [filterEvents:false])
 }
 
-def updateVirtualRelay(deviceName, deviceType, deviceConfig) {
+def updateVirtualRelay(deviceName, deviceType, deviceConfig, defaultState) {
     log.debug "updateVirtualRelay(): deviceName: " + deviceName
     log.debug "updateVirtualRelay(): deviceType: "+deviceType
     log.debug "updateVirtualRelay(): deviceConfig: "+deviceConfig
@@ -109,24 +111,25 @@ def updateVirtualRelay(deviceName, deviceType, deviceConfig) {
         log.debug "updateVirtualRelay(): After updating: label: ${theDevice.label}, name: ${theDevice.name}"
 
         if(deviceType == "switch") { // Actions specific for the relay device type
-            subscribe(theDevice, "switch", switchChange)
-            log.debug "updateVirtualRelay(): Setting initial state of $deviceName to off"
-            setDeviceStateOnPyServer(deviceConfig, "off");
-            theDevice.off();
+            subscribe(theDevice, "switch", switchChangeOrRefresh)
+            log.debug "updateVirtualRelay(): Setting initial state of $deviceName to ${defaultState}"
+            setDeviceStateOnPyServer(deviceConfig, defaultState);
+            if( defaultState == "on") {
+                theDevice.on();
+            } else {
+                theDevice.off();
+            }
         } else {
             updateTempratureSensor();
         }
 
     } else { // The switch does not exist
-        if(deviceName){ // The user filled in data about this switch
-            log.debug "updateVirtualRelay(): This device does not exist, creating a new one now"
-            /*setupVirtualRelay(deviceId, gpioName);*/
-            setupVirtualRelay(deviceName, deviceType, deviceConfig);
-        }
+        log.debug "updateVirtualRelay(): This device does not exist, creating a new one now"
+        setupVirtualRelay(deviceName, deviceType, deviceConfig, defaultState);
     }
 
 }
-def setupVirtualRelay(deviceName, deviceType, deviceConfig) {
+def setupVirtualRelay(deviceName, deviceType, deviceConfig, defaultState) {
 
     log.debug "setupVirtualRelay()"
 
@@ -138,17 +141,21 @@ def setupVirtualRelay(deviceName, deviceType, deviceConfig) {
         switch(deviceType) {
             case "switch":
                 log.trace "setupVirtualRelay(): Setting up a eHome Basement Relay called $deviceName with Device ID #$deviceConfig"
-                def d = addChildDevice("mattPiratt", "eHome Basement Relay", getRelayID(deviceConfig), theHub.id, [label:deviceName, name:deviceName])
-                subscribe(d, "switch", switchChange)
+                def theDevice = addChildDevice("mattPiratt", "eHome Basement Relay", getRelayID(deviceConfig), theHub.id, [label:deviceName, name:deviceName])
+                subscribe(theDevice, "switch", switchChangeOrRefresh)
 
                 log.debug "setupVirtualRelay(): Setting initial state of ${deviceName} at pyServer into OFF"
-                setDeviceStateOnPyServer(deviceConfig, "off");
-                d.off();
+                setDeviceStateOnPyServer(deviceConfig, defaultState);
+                if( defaultState == "on") {
+                    theDevice.on();
+                } else {
+                    theDevice.off();
+                }
                 break;
 
             case "temperatureSensor":
                 log.trace "setupVirtualRelay(): Found a temperature sensor called $deviceName on $deviceConfig"
-                def d = addChildDevice("mattPiratt", "eHome Temperature Sensor", getTemperatureID(deviceConfig), theHub.id, [label:deviceName, name:deviceName])
+                def theDevice = addChildDevice("mattPiratt", "eHome Temperature Sensor", getTemperatureID(deviceConfig), theHub.id, [label:deviceName, name:deviceName])
                 state.temperatureZone = deviceConfig
                 updateTempratureSensor();
                 break;
@@ -171,7 +178,7 @@ def uninstalled() {
     def delete = getChildDevices()
     delete.each {
         unsubscribe(it)
-        log.trace "uninstalled(): about to delete device"
+        log.trace "uninstalled(): about to delete device ${it.deviceNetworkId}"
         deleteChildDevice(it.deviceNetworkId)
     }
 }
@@ -179,21 +186,38 @@ def uninstalled() {
 def response(evt){
     log.debug "response()"
     def msg = parseLanMessage(evt.description);
-    log.debug "response(): msg:"+msg;
+//    log.debug "response(): msg:"+msg;
     if(msg && msg.body){
-        log.debug "response(): body: ${msg.body}"
+//        log.debug "response(): body: ${msg.body}"
+        log.debug "response(): json runningWaterPump: ${msg.json.runningWaterPump}"
+        log.debug "response(): json floorHeatingPump: ${msg.json.floorHeatingPump}"
+        log.debug "response(): json radiatorsPump: ${msg.json.radiatorsPump}"
+        log.debug "response(): json intTemp1: ${msg.json.intTemp1}"
+        log.debug "response(): json extTemp: ${msg.json.extTemp}"
+        log.debug "response(): json waterTemp: ${msg.json.waterTemp}"
+        log.debug "response(): json stoveTemp: ${msg.json.stoveTemp}"
 
-        // This is the GPIO headder state message
-        // TODO bkubek: use this somehow as a way to update all eHome basement deviced registered here: relays and temp sensors
-//        def children = getChildDevices(false)
-//        if(msg.json) {
-//            msg.json.GPIO.each { item ->
-//                updateRelayDevice(item.key, item.value.value, children);
-//            }
-//
-//            log.trace "response(): Finished Getting GPIO State"
-//        }
-//
+        if(msg.json) {
+            def flagsOnPyServerVsID = [
+                    "runningWaterPumpSet": 1,
+                    "floorHeatingPumpSet": 2,
+                    "radiatorsPumpSet": 3,
+            ];
+            def children = getChildDevices(false)
+            msg.json.each { item ->
+                log.debug "response(): each() item.key: ${item.key}"
+                log.debug "response(): each() flagsOnPyServerVsID[item.key]: ${flagsOnPyServerVsID[item.key]}"
+                log.debug "response(): each() item.value: ${item.value}"
+                log.debug "response(): each() children: ${children}"
+
+                if( flagsOnPyServerVsID[item.key]) {
+                    updateRelayDevice(lagsOnPyServerVsID[item.key], item.value, children);
+                }
+            }
+
+            log.debug "response(): Finished seting Relay virtual switches"
+        }
+
 //        def tempContent = msg.body.tokenize('.')
 //        log.debug "response(): tempContent"+tempContent
 //        if(tempContent.size() == 2 && tempContent[0].isNumber() && tempContent[1].isNumber() ) {
@@ -240,10 +264,10 @@ def updateRelayState() {
     runIn(60*60, updateRelayState);
 }
 
-def switchChange(evt){
+def switchChangeOrRefresh(evt){
 
-    log.debug "switchChange(): evt: ${evt}"
-    log.debug "switchChange(): evt.value: ${evt.value}"
+    log.debug "switchChangeOrRefresh(): evt: ${evt}"
+    log.debug "switchChangeOrRefresh(): evt.value: ${evt.value}"
     if(evt.value == "on" || evt.value == "off") return;
 
 
@@ -252,15 +276,14 @@ def switchChange(evt){
     def ID = parts[2];
     def state = parts.last();
 
-    log.debug "switchChange(): state:"+ state;
-    log.debug "switchChange(): parts:"+ parts;
-    log.debug "switchChange(): deviceId: "+ deviceId;
+    log.debug "switchChangeOrRefresh(): state:"+ state;
+    log.debug "switchChangeOrRefresh(): parts:"+ parts;
+    log.debug "switchChangeOrRefresh(): deviceId: "+ deviceId;
 
-    // probably this is not required. I dont need to refresh the state on pyServer
     switch(state){
         case "refresh":
             // Refresh this switches button
-            log.debug "switchChange(): Refreshing the state of Relay ID " + ID
+            log.debug "switchChangeOrRefresh(): Refreshing the state of All/This one (?) relay switch"
 //            executeRequestToPyServer("/*", "GET", null)
             return;
     }
