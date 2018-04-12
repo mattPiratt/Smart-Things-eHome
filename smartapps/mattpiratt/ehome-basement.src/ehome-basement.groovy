@@ -31,23 +31,16 @@ preferences {
         input "piPort", "text", "title": "pyServer Port", multiple: false, required: true
         input "theHub", "hub", title: "On which hub?", multiple: false, required: true
     }
-
-//    section("Device 1") {
-//        input "deviceName1", "text", title: "Device Name", required:false
-//        input "deviceType1", "enum", title: "Device Type", required: false, options: [
-//                "switch":"eHome Relay",
-//                "temperatureSensor":"eHome Temperature Sensor"]
-//    }
-//    section("Device 2") {
-//        input "deviceName2", "text", title: "Device Name", required:false
-//        input "deviceType2", "enum", title: "Device Type", required: false, options: [
-//                "switch":"eHome Relay",
-//                "temperatureSensor":"eHome Temperature Sensor"]
-//        input "deviceConfig2", "text", title: "Device ID", required: false
-//    }
-
-
 }
+
+def getRelaysConfig() {
+    return [
+            "runningWaterPump": [name: "Hot water pump", defaultState: "off"],
+            "floorHeatingPump": [name: "Floor heating pump", defaultState: "on"],
+            "radiatorsPump": [name: "Radiators pump", defaultState: "on"],
+    ]
+};
+
 
 def installed() {
     log.debug "installed(): with settings: ${settings}"
@@ -60,10 +53,13 @@ def initialize() {
 
     subscribe(location, null, response, [filterEvents:false])
 
-//    setupVirtualRelay(deviceName1, deviceType1, deviceConfig1);
-    setupVirtualRelay("Hot water pump", "switch", 1, "off");
-    setupVirtualRelay("Floor heating pump", "switch", 2, "on");
-    setupVirtualRelay("Radiators pump", "switch", 3, "on");
+    relaysConfig.each { deviceCodeName, deviceConfig ->
+        setupVirtualRelay(deviceConfig['name'], "switch", deviceCodeName, deviceConfig['defaultState']);
+    }
+
+//    setupVirtualRelay("Hot water pump", "switch", "runningWaterPump", "off");
+//    setupVirtualRelay("Floor heating pump", "switch", "floorHeatingPump", "on");
+//    setupVirtualRelay("Radiators pump", "switch", "radiatorsPump", "on");
 }
 
 def updated() {
@@ -72,18 +68,21 @@ def updated() {
     updateRelayState();
     unsubscribe();
 
-//    updateVirtualRelay(deviceName2, deviceType2, deviceConfig2);
-    updateVirtualRelay("Hot water pump", "switch", 1, "off");
-    updateVirtualRelay("Floor heating pump", "switch", 2, "on");
-    updateVirtualRelay("Radiators pump", "switch", 3, "on");
+    relaysConfig.each { deviceCodeName, deviceConfig ->
+        updateVirtualRelay(deviceConfig['name'], "switch", deviceCodeName, deviceConfig['defaultState']);
+    }
+
+//    updateVirtualRelay("Hot water pump", "switch", "runningWaterPump", "off");
+//    updateVirtualRelay("Floor heating pump", "switch", "floorHeatingPump", "on");
+//    updateVirtualRelay("Radiators pump", "switch", "radiatorsPump", "on");
 
     subscribe(location, null, response, [filterEvents:false])
 }
 
-def updateVirtualRelay(deviceName, deviceType, deviceConfig, defaultState) {
+def updateVirtualRelay(deviceName, deviceType, deviceCodeName, defaultState) {
     log.debug "updateVirtualRelay(): deviceName: " + deviceName
     log.debug "updateVirtualRelay(): deviceType: "+deviceType
-    log.debug "updateVirtualRelay(): deviceConfig: "+deviceConfig
+    log.debug "updateVirtualRelay(): deviceCodeName: "+deviceCodeName
 
     // If user didn't fill this device out, skip it
     if(!deviceName) return;
@@ -91,11 +90,11 @@ def updateVirtualRelay(deviceName, deviceType, deviceConfig, defaultState) {
     def theDeviceNetworkId = "";
     switch(deviceType) {
         case "switch":
-            theDeviceNetworkId = getRelayID(deviceConfig);
+            theDeviceNetworkId = getRelayID(deviceCodeName);
             break;
 
         case "temperatureSensor":
-            theDeviceNetworkId = getTemperatureID(deviceConfig);
+            theDeviceNetworkId = getTemperatureID(deviceCodeName);
             break;
     }
 
@@ -105,7 +104,7 @@ def updateVirtualRelay(deviceName, deviceType, deviceConfig, defaultState) {
 
     if(theDevice){ // The switch already exists
         log.debug "updateVirtualRelay(): Found existing device which we will now update: label: ${theDevice.label}, name: ${theDevice.name}"
-        //theDevice.deviceNetworkId = theDeviceNetworkId + "." + deviceConfig // orginal one
+        //theDevice.deviceNetworkId = theDeviceNetworkId + "." + deviceCodeName // orginal one
         theDevice.label = deviceName
         theDevice.name = deviceName
         log.debug "updateVirtualRelay(): After updating: label: ${theDevice.label}, name: ${theDevice.name}"
@@ -113,7 +112,7 @@ def updateVirtualRelay(deviceName, deviceType, deviceConfig, defaultState) {
         if(deviceType == "switch") { // Actions specific for the relay device type
             subscribe(theDevice, "switch", switchChangeOrRefresh)
             log.debug "updateVirtualRelay(): Setting initial state of $deviceName to ${defaultState}"
-            setDeviceStateOnPyServer(deviceConfig, defaultState);
+            setDeviceStateOnPyServer(deviceCodeName, defaultState);
             if( defaultState == "on") {
                 theDevice.on();
             } else {
@@ -125,27 +124,27 @@ def updateVirtualRelay(deviceName, deviceType, deviceConfig, defaultState) {
 
     } else { // The switch does not exist
         log.debug "updateVirtualRelay(): This device does not exist, creating a new one now"
-        setupVirtualRelay(deviceName, deviceType, deviceConfig, defaultState);
+        setupVirtualRelay(deviceName, deviceType, deviceCodeName, defaultState);
     }
 
 }
-def setupVirtualRelay(deviceName, deviceType, deviceConfig, defaultState) {
+def setupVirtualRelay(deviceName, deviceType, deviceCodeName, defaultState) {
 
     log.debug "setupVirtualRelay()"
 
     if(deviceName){
         log.debug "setupVirtualRelay(): deviceName: ${deviceName}"
         log.debug "setupVirtualRelay(): deviceType: ${deviceType}"
-        log.debug "setupVirtualRelay(): deviceConfig: ${deviceConfig}"
+        log.debug "setupVirtualRelay(): deviceCodeName: ${deviceCodeName}"
 
         switch(deviceType) {
             case "switch":
-                log.trace "setupVirtualRelay(): Setting up a eHome Basement Relay called $deviceName with Device ID #$deviceConfig"
-                def theDevice = addChildDevice("mattPiratt", "eHome Basement Relay", getRelayID(deviceConfig), theHub.id, [label:deviceName, name:deviceName])
+                log.trace "setupVirtualRelay(): Setting up a eHome Basement Relay called $deviceName with Device ID #$deviceCodeName"
+                def theDevice = addChildDevice("mattPiratt", "eHome Basement Relay", getRelayID(deviceCodeName), theHub.id, [label:deviceName, name:deviceName])
                 subscribe(theDevice, "switch", switchChangeOrRefresh)
 
                 log.debug "setupVirtualRelay(): Setting initial state of ${deviceName} at pyServer into OFF"
-                setDeviceStateOnPyServer(deviceConfig, defaultState);
+                setDeviceStateOnPyServer(deviceCodeName, defaultState);
                 if( defaultState == "on") {
                     theDevice.on();
                 } else {
@@ -154,22 +153,22 @@ def setupVirtualRelay(deviceName, deviceType, deviceConfig, defaultState) {
                 break;
 
             case "temperatureSensor":
-                log.trace "setupVirtualRelay(): Found a temperature sensor called $deviceName on $deviceConfig"
-                def theDevice = addChildDevice("mattPiratt", "eHome Temperature Sensor", getTemperatureID(deviceConfig), theHub.id, [label:deviceName, name:deviceName])
-                state.temperatureZone = deviceConfig
+                log.trace "setupVirtualRelay(): Found a temperature sensor called $deviceName on $deviceCodeName"
+                def theDevice = addChildDevice("mattPiratt", "eHome Temperature Sensor", getTemperatureID(deviceCodeName), theHub.id, [label:deviceName, name:deviceName])
+                state.temperatureZone = deviceCodeName
                 updateTempratureSensor();
                 break;
         }
     }
 }
 
-def String getRelayID(deviceConfig) {
+def String getRelayID(deviceCodeName) {
 
-    return "pyServerRelay." + deviceConfig
+    return "pyServerRelay." + deviceCodeName
 }
-def String getTemperatureID(deviceConfig){
+def String getTemperatureID(deviceCodeName){
 
-    return  "pyServerTempSensor." + deviceConfig
+    return  "pyServerTempSensor." + deviceCodeName
 }
 
 def uninstalled() {
@@ -198,20 +197,19 @@ def response(evt){
         log.debug "response(): json stoveTemp: ${msg.json.stoveTemp}"
 
         if(msg.json) {
-            def flagsOnPyServerVsID = [
-                    "runningWaterPumpSet": 1,
-                    "floorHeatingPumpSet": 2,
-                    "radiatorsPumpSet": 3,
-            ];
+//            def flagsOnPyServerVsID = [
+//                    "runningWaterPump": 1,
+//                    "floorHeatingPump": 2,
+//                    "radiatorsPump": 3,
+//            ];
             def children = getChildDevices(false)
             msg.json.each { item ->
                 log.debug "response(): each() item.key: ${item.key}"
-                log.debug "response(): each() flagsOnPyServerVsID[item.key]: ${flagsOnPyServerVsID[item.key]}"
                 log.debug "response(): each() item.value: ${item.value}"
                 log.debug "response(): each() children: ${children}"
 
-                if( flagsOnPyServerVsID[item.key]) {
-                    updateRelayDevice(lagsOnPyServerVsID[item.key], item.value, children);
+                if( relaysConfig[item.key]) {
+                    updateRelayDevice(item.key, item.value, children);
                 }
             }
 
@@ -236,12 +234,12 @@ def response(evt){
     }
 }
 
-def updateRelayDevice(ID, state, childDevices) {
+def updateRelayDevice(deviceCodeName, state, childDevices) {
     log.debug "updateRelayDevice()"
 
-    def theSwitch = childDevices.find{ d -> d.deviceNetworkId.endsWith(".$ID") }
+    def theSwitch = childDevices.find{ d -> d.deviceNetworkId.endsWith(".$deviceCodeName") }
     if(theSwitch) {
-        log.debug "updateRelayDevice(): Updating switch $theSwitch for Device ID $ID with value $state"
+        log.debug "updateRelayDevice(): Updating switch $theSwitch for Device ID $deviceCodeName with value $state"
         theSwitch.changeSwitchState(state)
     }
 }
@@ -272,13 +270,12 @@ def switchChangeOrRefresh(evt){
 
 
     def parts = evt.value.tokenize('.');
-    def deviceId = parts[1];
-    def ID = parts[2];
+    def deviceCodeName = parts[1];
     def state = parts.last();
 
     log.debug "switchChangeOrRefresh(): state:"+ state;
     log.debug "switchChangeOrRefresh(): parts:"+ parts;
-    log.debug "switchChangeOrRefresh(): deviceId: "+ deviceId;
+    log.debug "switchChangeOrRefresh(): deviceCodeName: "+ deviceCodeName;
 
     switch(state){
         case "refresh":
@@ -288,25 +285,20 @@ def switchChangeOrRefresh(evt){
             return;
     }
 
-    setDeviceStateOnPyServer(ID, state);
+    setDeviceStateOnPyServer(deviceCodeName, state);
 
     return;
 }
 
 
-def setDeviceStateOnPyServer(ID, state) {
-    log.debug "setDeviceStateOnPyServer(): ID: "+ID+"; state:"+state
+def setDeviceStateOnPyServer(deviceCodeName, state) {
+    log.debug "setDeviceStateOnPyServer(): deviceCodeName: "+deviceCodeName+"; state:"+state
 
     // Determine the path to post which will set the switch to the desired state
     def Path = "/setFlag";
     def val = (state == "on") ? "1" : "0";
-    def flagsOnPyServer = [
-      1: "runningWaterPumpSet",
-      2: "floorHeatingPumpSet",
-      3: "radiatorsPumpSet"
-    ];
 
-    executeRequestToPyServer(Path, "POST", ["flag":flagsOnPyServer[ID.toInteger()],"value":val]);
+    executeRequestToPyServer(Path, "POST", ["flag":deviceCodeName,"value":val]);
 }
 
 def executeRequestToPyServer(Path, method, params) {
