@@ -41,7 +41,6 @@ def getRelaysConfig() {
     ]
 };
 
-
 def installed() {
     log.debug "installed(): with settings: ${settings}"
 
@@ -57,32 +56,26 @@ def initialize() {
         setupVirtualRelay(deviceConfig['name'], "switch", deviceCodeName, deviceConfig['defaultState']);
     }
 
-//    setupVirtualRelay("Hot water pump", "switch", "runningWaterPump", "off");
-//    setupVirtualRelay("Floor heating pump", "switch", "floorHeatingPump", "on");
-//    setupVirtualRelay("Radiators pump", "switch", "radiatorsPump", "on");
+    updateDevicesStatePeriodically();
 }
 
 def updated() {
     log.debug "Updated(): with settings: ${settings}"
 
-    updateRelayState();
     unsubscribe();
 
     relaysConfig.each { deviceCodeName, deviceConfig ->
         updateVirtualRelay(deviceConfig['name'], "switch", deviceCodeName, deviceConfig['defaultState']);
     }
+    //TODO: temp sensors should have own function here for update
 
-//    updateVirtualRelay("Hot water pump", "switch", "runningWaterPump", "off");
-//    updateVirtualRelay("Floor heating pump", "switch", "floorHeatingPump", "on");
-//    updateVirtualRelay("Radiators pump", "switch", "radiatorsPump", "on");
+    updateDevicesStatePeriodically();
 
     subscribe(location, null, response, [filterEvents:false])
 }
 
 def updateVirtualRelay(deviceName, deviceType, deviceCodeName, defaultState) {
-    log.debug "updateVirtualRelay(): deviceName: " + deviceName
-    log.debug "updateVirtualRelay(): deviceType: "+deviceType
-    log.debug "updateVirtualRelay(): deviceCodeName: "+deviceCodeName
+    log.debug "updateVirtualRelay(): deviceName: ${deviceName}; deviceType: ${deviceType}; deviceCodeName: ${deviceCodeName}"
 
     // If user didn't fill this device out, skip it
     if(!deviceName) return;
@@ -104,10 +97,6 @@ def updateVirtualRelay(deviceName, deviceType, deviceCodeName, defaultState) {
 
     if(theDevice){ // The switch already exists
         log.debug "updateVirtualRelay(): Found existing device which we will now update: label: ${theDevice.label}, name: ${theDevice.name}"
-        //theDevice.deviceNetworkId = theDeviceNetworkId + "." + deviceCodeName // orginal one
-        theDevice.label = deviceName
-        theDevice.name = deviceName
-        log.debug "updateVirtualRelay(): After updating: label: ${theDevice.label}, name: ${theDevice.name}"
 
         if(deviceType == "switch") { // Actions specific for the relay device type
             subscribe(theDevice, "switch", switchChangeOrRefresh)
@@ -119,6 +108,7 @@ def updateVirtualRelay(deviceName, deviceType, deviceCodeName, defaultState) {
                 theDevice.off();
             }
         } else {
+            //TODO: updateTempratureSensor, but does this else ever happens?
             updateTempratureSensor();
         }
 
@@ -133,9 +123,7 @@ def setupVirtualRelay(deviceName, deviceType, deviceCodeName, defaultState) {
     log.debug "setupVirtualRelay()"
 
     if(deviceName){
-        log.debug "setupVirtualRelay(): deviceName: ${deviceName}"
-        log.debug "setupVirtualRelay(): deviceType: ${deviceType}"
-        log.debug "setupVirtualRelay(): deviceCodeName: ${deviceCodeName}"
+        log.debug "setupVirtualRelay(): deviceName: ${deviceName}; deviceType: ${deviceType}; deviceCodeName: ${deviceCodeName}"
 
         switch(deviceType) {
             case "switch":
@@ -143,7 +131,7 @@ def setupVirtualRelay(deviceName, deviceType, deviceCodeName, defaultState) {
                 def theDevice = addChildDevice("mattPiratt", "eHome Basement Relay", getRelayID(deviceCodeName), theHub.id, [label:deviceName, name:deviceName])
                 subscribe(theDevice, "switch", switchChangeOrRefresh)
 
-                log.debug "setupVirtualRelay(): Setting initial state of ${deviceName} at pyServer into OFF"
+                log.debug "setupVirtualRelay(): Setting initial state of ${deviceName} at pyServer into ${defaultState}"
                 setDeviceStateOnPyServer(deviceCodeName, defaultState);
                 if( defaultState == "on") {
                     theDevice.on();
@@ -153,6 +141,7 @@ def setupVirtualRelay(deviceName, deviceType, deviceCodeName, defaultState) {
                 break;
 
             case "temperatureSensor":
+                //TODO: program this
                 log.trace "setupVirtualRelay(): Found a temperature sensor called $deviceName on $deviceCodeName"
                 def theDevice = addChildDevice("mattPiratt", "eHome Temperature Sensor", getTemperatureID(deviceCodeName), theHub.id, [label:deviceName, name:deviceName])
                 state.temperatureZone = deviceCodeName
@@ -185,35 +174,22 @@ def uninstalled() {
 def response(evt){
     log.debug "response()"
     def msg = parseLanMessage(evt.description);
-//    log.debug "response(): msg:"+msg;
     if(msg && msg.body){
-//        log.debug "response(): body: ${msg.body}"
-        log.debug "response(): json runningWaterPump: ${msg.json.runningWaterPump}"
-        log.debug "response(): json floorHeatingPump: ${msg.json.floorHeatingPump}"
-        log.debug "response(): json radiatorsPump: ${msg.json.radiatorsPump}"
-        log.debug "response(): json intTemp1: ${msg.json.intTemp1}"
-        log.debug "response(): json extTemp: ${msg.json.extTemp}"
-        log.debug "response(): json waterTemp: ${msg.json.waterTemp}"
-        log.debug "response(): json stoveTemp: ${msg.json.stoveTemp}"
+        log.debug "response(): json runningWaterPump: ${msg.json.runningWaterPump}; floorHeatingPump: ${msg.json.floorHeatingPump}; " +
+                "radiatorsPump: ${msg.json.radiatorsPump}; intTemp1: ${msg.json.intTemp1}; extTemp: ${msg.json.extTemp}; " +
+                "waterTemp: ${msg.json.waterTemp}; stoveTemp: ${msg.json.stoveTemp}"
 
         if(msg.json) {
-//            def flagsOnPyServerVsID = [
-//                    "runningWaterPump": 1,
-//                    "floorHeatingPump": 2,
-//                    "radiatorsPump": 3,
-//            ];
             def children = getChildDevices(false)
             msg.json.each { item ->
-                log.debug "response(): each() item.key: ${item.key}"
-                log.debug "response(): each() item.value: ${item.value}"
-                log.debug "response(): each() children: ${children}"
+                log.debug "response(): each() item.key: ${item.key}; item.value: ${item.value}; children: ${children}"
 
-                if( relaysConfig[item.key]) {
+                if( relaysConfig[item.key]) { //TODO: add support for temperature devices
                     updateRelayDevice(item.key, item.value, children);
                 }
             }
 
-            log.debug "response(): Finished seting Relay virtual switches"
+            log.trace "response(): Finished seting Relay virtual switches"
         }
 
 //        def tempContent = msg.body.tokenize('.')
@@ -235,8 +211,6 @@ def response(evt){
 }
 
 def updateRelayDevice(deviceCodeName, state, childDevices) {
-    log.debug "updateRelayDevice()"
-
     def theSwitch = childDevices.find{ d -> d.deviceNetworkId.endsWith(".$deviceCodeName") }
     if(theSwitch) {
         log.debug "updateRelayDevice(): Updating switch $theSwitch for Device ID $deviceCodeName with value $state"
@@ -244,64 +218,49 @@ def updateRelayDevice(deviceCodeName, state, childDevices) {
     }
 }
 
-def updateTempratureSensor() {
-
-    log.trace "updateTempratureSensor(): Updating temperature for $state.temperatureZone"
-
-//    executeRequestToPyServer("/devices/" + state.temperatureZone  + "/sensor/temperature/c", "GET", null);
-
-    runIn(60*60, updateTempratureSensor);
-}
-
-def updateRelayState() {
-
-    log.trace "updateRelayState(): Updating Relay map or IDK. Maybe read temp sensors by poolig?"
-
-//    executeRequestToPyServer("/*", "GET", null);
-
-    runIn(60*60, updateRelayState);
+def updateDevicesStatePeriodically() {
+    log.trace "updateDevicesStatePeriodically(): Poll info about relays and termomethers state from pyServer"
+    getDevicesStateFromPyServer();
+    runIn(60*60, updateDevicesStatePeriodically);
 }
 
 def switchChangeOrRefresh(evt){
-
-    log.debug "switchChangeOrRefresh(): evt: ${evt}"
-    log.debug "switchChangeOrRefresh(): evt.value: ${evt.value}"
     if(evt.value == "on" || evt.value == "off") return;
-
+    log.debug "switchChangeOrRefresh(): evt: ${evt}; evt.value: ${evt.value}"
 
     def parts = evt.value.tokenize('.');
     def deviceCodeName = parts[1];
     def state = parts.last();
 
-    log.debug "switchChangeOrRefresh(): state:"+ state;
-    log.debug "switchChangeOrRefresh(): parts:"+ parts;
-    log.debug "switchChangeOrRefresh(): deviceCodeName: "+ deviceCodeName;
+    log.debug "switchChangeOrRefresh(): state: ${state}; parts: ${parts}; deviceCodeName: ${deviceCodeName}"
 
     switch(state){
         case "refresh":
-            // Refresh this switches button
             log.debug "switchChangeOrRefresh(): Refreshing the state of All/This one (?) relay switch"
-//            executeRequestToPyServer("/*", "GET", null)
+            getDevicesStateFromPyServer();
+            return;
+        default:
+            setDeviceStateOnPyServer(deviceCodeName, state);
             return;
     }
-
-    setDeviceStateOnPyServer(deviceCodeName, state);
-
-    return;
 }
 
+def getDevicesStateFromPyServer() {
+    log.debug "getDevicesStateFromPyServer():"
+
+    def Path = "/bh/getCurrent";
+    executeRequestToPyServer(Path, "GET");
+}
 
 def setDeviceStateOnPyServer(deviceCodeName, state) {
-    log.debug "setDeviceStateOnPyServer(): deviceCodeName: "+deviceCodeName+"; state:"+state
+    log.debug "setDeviceStateOnPyServer(): deviceCodeName: ${deviceCodeName}; state: ${state}"
 
-    // Determine the path to post which will set the switch to the desired state
     def Path = "/setFlag";
     def val = (state == "on") ? "1" : "0";
-
     executeRequestToPyServer(Path, "POST", ["flag":deviceCodeName,"value":val]);
 }
 
-def executeRequestToPyServer(Path, method, params) {
+def executeRequestToPyServer(Path, method, params=[]) {
 
     log.debug "executeRequestToPyServer(): Path:" + Path + "; method: "+method+"; params: " +params
 

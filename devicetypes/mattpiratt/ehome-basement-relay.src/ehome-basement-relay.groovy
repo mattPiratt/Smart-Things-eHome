@@ -24,7 +24,6 @@ metadata {
     }
 
     simulator {
-        // TODO: define status and reply messages here
     }
 
     tiles {
@@ -50,7 +49,6 @@ def parse(String description) {
 
 def poll() {
     log.debug "Executing 'poll'"
-
     def lastState = device.currentValue("switch")
     sendEvent(name: "switch", value: device.deviceNetworkId + ".refresh")
     sendEvent(name: "switch", value: lastState);
@@ -58,26 +56,22 @@ def poll() {
 
 def refresh() {
     log.debug "Executing 'refresh'"
-
     poll();
 }
 
 def on() {
     log.debug "Executing 'on'"
-
     sendEvent(name: "switch", value: device.deviceNetworkId + ".on");
     sendEvent(name: "switch", value: "on");
 }
 
 def off() {
     log.debug "Executing 'off'"
-
     sendEvent(name: "switch", value: device.deviceNetworkId + ".off");
     sendEvent(name: "switch", value: "off");
 }
 
 def changeSwitchState(newState) {
-
     log.trace "Received update that this switch is now $newState"
     switch(newState) {
         case 1:
