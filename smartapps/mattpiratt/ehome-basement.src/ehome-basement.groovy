@@ -223,28 +223,12 @@ def updateThermometerDevice(deviceCodeName, temperature, childDevices){
         theThermometer.setTemperature(temperature,state.temperatureZone)
     }
 
-
-//        def tempContent = msg.body.tokenize('.')
-//        log.debug "response(): tempContent"+tempContent
-//        if(tempContent.size() == 2 && tempContent[0].isNumber() && tempContent[1].isNumber() ) {
-//
-//            //Got temperature response
-//            def networkId = getTemperatureID(state.temperatureZone);
-//            def theDevice = getChildDevices().find{ d -> d.deviceNetworkId.startsWith(networkId) }
-//            log.debug "response(): networkId"+networkId
-//            log.debug "response(): theDevice"+theDevice
-//
-//            if(theDevice) {
-//                theDevice.setTemperature(msg.body, state.temperatureZone);
-//                log.trace "$theDevice set to $msg.body"
-//            }
-//        }
 }
 
 def updateDevicesStatePeriodically() {
     log.trace "updateDevicesStatePeriodically(): Poll info about relays and termomethers state from pyServer"
     getDevicesStateFromPyServer();
-    runIn(60*60, updateDevicesStatePeriodically);
+    runIn(60*10, updateDevicesStatePeriodically);
 }
 
 def switchChangeOrRefresh(evt){
