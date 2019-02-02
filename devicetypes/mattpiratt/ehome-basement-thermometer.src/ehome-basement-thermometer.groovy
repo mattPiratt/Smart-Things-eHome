@@ -17,34 +17,11 @@
 metadata {
     definition (name: "eHome Basement Thermometer", namespace: "mattPiratt", author: "Bartosz Kubek") {
         capability "Temperature Measurement"
-
         command "setTemperature", ["number", "string"]
     }
 
     simulator {
     }
-
-//    tiles {
-//
-//        valueTile("temperature", "device.temperature") {
-//            state "temperature", label:'${currentValue}°', icon:"st.Weather.weather2",backgroundColors:[
-//                            [value: 31, color: "#153591"],
-//                            [value: 44, color: "#1e9cbb"],
-//                            [value: 59, color: "#90d2a7"],
-//                            [value: 74, color: "#44b621"],
-//                            [value: 84, color: "#f1d801"],
-//                            [value: 95, color: "#d04e00"],
-//                            [value: 96, color: "#bc2323"]
-//                    ]
-//        }
-//
-//        standardTile("refresh", "device.refresh", inactiveLabel: false, decoration: "flat", width: 1, height: 1) {
-//            state("default", label:'refresh', action:"polling.poll", icon:"st.secondary.refresh-icon")
-//        }
-//
-//        main "temperature"
-//        details (["temperature"])
-//    }
 
     tiles(scale: 2)  {
 
@@ -60,9 +37,6 @@ metadata {
                         [value: 30, color: "#d9372b"],
                         [value: 32, color: "#b9203b"]
                 ]}
-            tileAttribute ("zoneName", key: "SECONDARY_CONTROL") {
-                attributeState "zoneName", label:'${currentValue}'
-            }
         }
 
         main "thermostat"
@@ -70,23 +44,6 @@ metadata {
     }
 }
 
-//// parse events into attributes
-//def parse(String description) {
-//    log.debug "Virtual Thermometer parsing '${description}'"
-//}
-//
-//
-//def changeThermometerState(newState) {
-//    log.trace "Received update that this Thermometer is now $newState"
-////    switch(newState) {
-////        case 1:
-////            sendEvent(name: "switch", value: "on")
-////            break;
-////        case 0:
-////            sendEvent(name: "switch", value: "off")
-////            break;
-////    }
-//}
 
 // parse events into attributes
 def parse(String description) {
