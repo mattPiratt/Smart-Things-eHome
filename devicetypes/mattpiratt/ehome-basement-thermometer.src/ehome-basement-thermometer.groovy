@@ -37,6 +37,9 @@ metadata {
                         [value: 30, color: "#d9372b"],
                         [value: 32, color: "#b9203b"]
                 ]}
+            tileAttribute ("zoneName", key: "SECONDARY_CONTROL") {
+                attributeState "zoneName", label:'${currentValue}'
+            }
         }
 
         main "thermostat"
