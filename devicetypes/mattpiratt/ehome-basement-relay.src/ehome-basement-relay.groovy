@@ -47,6 +47,7 @@ def parse(String description) {
     log.debug "Virtual siwtch parsing '${description}'"
 }
 
+//I thinks I do not need pooling from relays
 def poll() {
     log.debug "Executing 'poll'"
     def lastState = device.currentValue("switch")

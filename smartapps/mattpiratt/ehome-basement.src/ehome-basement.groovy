@@ -196,8 +196,7 @@ def response(evt){
 
                 if( relaysConfig[item.key]) {
                     updateRelayDevice(item.key, item.value, children);
-                }
-                if( thermometerConfig[item.key]) {
+                } else if( thermometerConfig[item.key]) {
                     updateThermometerDevice(item.key, item.value, children);
                 }
             }
@@ -222,7 +221,6 @@ def updateThermometerDevice(deviceCodeName, temperature, childDevices){
         log.debug "updateThermometerDevice(): Updating thermometer $theThermometer for Device ID $deviceCodeName with value $temperature"
         theThermometer.setTemperature(temperature,state.temperatureZone)
     }
-
 }
 
 def updateDevicesStatePeriodically() {
@@ -263,7 +261,7 @@ def setDeviceStateOnPyServer(deviceCodeName, state) {
     log.debug "setDeviceStateOnPyServer(): deviceCodeName: ${deviceCodeName}; state: ${state}"
 
     def Path = "/setFlag";
-    def val = (state == "on") ? "1" : "0";
+    def val = (state == "on") ? "4" : "0";
     executeRequestToPyServer(Path, "POST", ["flag":deviceCodeName,"value":val]);
 }
 
@@ -278,7 +276,7 @@ def executeRequestToPyServer(Path, method, params=[]) {
     try {
         def actualAction = new physicalgraph.device.HubAction(
                 method: method,
-                path: "/api/L7fedk8tBkfbe7JG9Iu11"+Path,
+                path: "/api/X7upsk8tkEfbe3JG1Iu09"+Path,
                 headers: headers,
                 body: params
         )
