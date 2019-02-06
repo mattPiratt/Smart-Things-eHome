@@ -27,13 +27,14 @@ definition(
 preferences {
 
     section("eHome pyServer Setup"){
-        input "piIP", "text", "title": "pyServer address", multiple: false, required: true
-        input "piPort", "text", "title": "pyServer Port", multiple: false, required: true
+        input "pyServerIP", "text", "title": "pyServer address", multiple: false, required: true
+        input "pyServerPort", "text", "title": "pyServer Port", multiple: false, required: true
         input "theHub", "hub", title: "On which hub?", multiple: false, required: true
     }
 }
 
 def getRelaysConfig() {
+    //warning: those are keys in pyServer:server.py:168
     return [
             "runningWaterPump": [name: "Hot water pump", defaultState: "off"],
             "floorHeatingPump": [name: "Floor heating pump", defaultState: "on"],
@@ -44,8 +45,12 @@ def getThermometerConfig() {
     return [
             "intTemp1": [name: "Internal Temperature sensor"],
             "extTemp": [name: "External Temperature sensor"],
-            "waterTemp": [name: "Running Water Temperature sensor"],
-            "stoveTemp": [name: "Stove Temperature sensor"],
+            "waterTemp": [name: "Running Water Temperature sensor"]
+    ]
+};
+def getStoveConfig() {
+    return [
+            "stove": [name: "Stove"]
     ]
 };
 
@@ -66,6 +71,9 @@ def initialize() {
     thermometerConfig.each { deviceCodeName, deviceConfig ->
         setupVirtualDevice(deviceConfig['name'], "temperatureSensor", deviceCodeName);
     }
+    stoveConfig.each { deviceCodeName, deviceConfig ->
+        setupVirtualDevice(deviceConfig['name'], "boilerHouseStove", deviceCodeName);
+    }
 
     updateDevicesStatePeriodically();
 }
@@ -80,6 +88,9 @@ def updated() {
     }
     thermometerConfig.each { deviceCodeName, deviceConfig ->
         updateVirtualDevice(deviceConfig['name'], "temperatureSensor", deviceCodeName);
+    }
+    stoveConfig.each { deviceCodeName, deviceConfig ->
+        updateVirtualDevice(deviceConfig['name'], "boilerHouseStove", deviceCodeName);
     }
 
     updateDevicesStatePeriodically();
@@ -101,6 +112,9 @@ def updateVirtualDevice(deviceName, deviceType, deviceCodeName, defaultState="on
 
         case "temperatureSensor":
             theDeviceNetworkId = getTemperatureID(deviceCodeName);
+            break;
+        case "boilerHouseStove":
+            theDeviceNetworkId = getStoveID(deviceCodeName);
             break;
     }
 
@@ -155,11 +169,17 @@ def setupVirtualDevice(deviceName, deviceType, deviceCodeName, defaultState="on"
             case "temperatureSensor":
                 log.trace "setupVirtualDevice(): Setting up a eHome Basement Thermometer called $deviceName on $deviceCodeName"
                 def theDevice = addChildDevice("mattPiratt", "eHome Basement Thermometer", getTemperatureID(deviceCodeName), theHub.id, [label:deviceName, name:deviceName])
+                //TODO: is this really required? I dont see any use of this
                 state.temperatureZone = deviceCodeName
+                break;
+            case "boilerHouseStove":
+                log.trace "setupVirtualDevice(): Setting up a eHome Basement Stove called $deviceName on $deviceCodeName"
+                def theDevice = addChildDevice("mattPiratt", "eHome Basement Stove", getStoveID(deviceCodeName), theHub.id, [label:deviceName, name:deviceName])
                 break;
         }
     }
 }
+
 
 def String getRelayID(deviceCodeName) {
 
@@ -168,6 +188,10 @@ def String getRelayID(deviceCodeName) {
 def String getTemperatureID(deviceCodeName){
 
     return  "pyServerTempSensor." + deviceCodeName
+}
+def String getStoveID(deviceCodeName){
+
+    return  "pyServerStoveDTH." + deviceCodeName
 }
 
 def uninstalled() {
@@ -187,7 +211,7 @@ def response(evt){
     if(msg && msg.body){
         log.debug "response(): json runningWaterPump: ${msg.json.runningWaterPump}; floorHeatingPump: ${msg.json.floorHeatingPump}; " +
                 "radiatorsPump: ${msg.json.radiatorsPump}; intTemp1: ${msg.json.intTemp1}; extTemp: ${msg.json.extTemp}; " +
-                "waterTemp: ${msg.json.waterTemp}; stoveTemp: ${msg.json.stoveTemp}"
+                "waterTemp: ${msg.json.waterTemp}; stoveTemp: ${msg.json.stoveTemp}; stoveCoalLvl: ${msg.json.stoveCoalLvl}"
 
         if(msg.json) {
             def children = getChildDevices(false)
@@ -198,6 +222,8 @@ def response(evt){
                     updateRelayDevice(item.key, item.value, children);
                 } else if( thermometerConfig[item.key]) {
                     updateThermometerDevice(item.key, item.value, children);
+                } else if( item.key == "stoveCoalLvl" || item.key == "stoveTemp" ) {
+                    updateStoveDevice(item.key, item.value, children);
                 }
             }
 
@@ -207,19 +233,34 @@ def response(evt){
     }
 }
 
-def updateRelayDevice(deviceCodeName, newState, childDevices) {
-    def theSwitch = childDevices.find{ d -> d.deviceNetworkId.endsWith(".$deviceCodeName") }
+def updateRelayDevice(attributeName, newState, childDevices) {
+    def theSwitch = childDevices.find{ d -> d.deviceNetworkId.endsWith(".$attributeName") }
     if(theSwitch) {
-        log.debug "updateRelayDevice(): Updating switch $theSwitch for Device ID $deviceCodeName with value $newState"
+        log.debug "updateRelayDevice(): Updating switch $theSwitch for Device ID $attributeName with value $newState"
         theSwitch.changeSwitchState(newState)
     }
 }
 
-def updateThermometerDevice(deviceCodeName, temperature, childDevices){
-    def theThermometer = childDevices.find{ d -> d.deviceNetworkId.endsWith(".$deviceCodeName") }
+def updateThermometerDevice(attributeName, temperature, childDevices){
+    def theThermometer = childDevices.find{ d -> d.deviceNetworkId.endsWith(".$attributeName") }
     if(theThermometer) {
-        log.debug "updateThermometerDevice(): Updating thermometer $theThermometer for Device ID $deviceCodeName with value $temperature"
+        log.debug "updateThermometerDevice(): Updating thermometer $theThermometer for Device ID $attributeName with value $temperature"
         theThermometer.setTemperature(temperature,state.temperatureZone)
+    }
+}
+def updateStoveDevice(attributeName, attributeValue, childDevices){
+    def theDevice = childDevices.find{ d -> d.deviceNetworkId.endsWith(".stove") }
+    if(theDevice) {
+        switch(attributeName) {
+            case "stoveCoalLvl":
+                log.debug "updateStoveDevice B(): Updating coal level of $theDevice for Device ID .stove with value $attributeValue"
+                theDevice.setLevel(attributeValue)
+                break;
+            case "stoveTemp":
+                log.debug "updateStoveDevice B(): Updating temperature of $theDevice for Device ID .stove with value $attributeValue"
+                theDevice.setTemperature(attributeValue)
+                break;
+        }
     }
 }
 
@@ -231,6 +272,7 @@ def updateDevicesStatePeriodically() {
 
 def switchChangeOrRefresh(evt){
     if(evt.value == "on" || evt.value == "off") return;
+    // TODO: więc DTH wysyła zawsze 2 eventy. po co skotro tutaj i tak jest jeden zawsze ignorowany. Powinien ten zwykły wystarczy
     log.debug "switchChangeOrRefresh(): evt: ${evt}; evt.value: ${evt.value}"
 
     def parts = evt.value.tokenize('.');
@@ -270,8 +312,8 @@ def executeRequestToPyServer(Path, method, params=[]) {
     log.debug "executeRequestToPyServer(): Path:" + Path + "; method: "+method+"; params: " +params
 
     def headers = [:]
-    headers.put("HOST", "$settings.piIP:$settings.piPort")
-    log.debug "executeRequestToPyServer(): HOST: $settings.piIP:$settings.piPort"
+    headers.put("HOST", "$settings.pyServerIP:$settings.pyServerPort")
+    log.debug "executeRequestToPyServer(): HOST: $settings.pyServerIP:$settings.pyServerPort"
 
     try {
         def actualAction = new physicalgraph.device.HubAction(
@@ -291,8 +333,8 @@ def executeRequestToPyServer(Path, method, params=[]) {
 
 /* Helper functions to get the network device ID */
 private String NetworkDeviceId(){
-    def iphex = convertIPtoHex(settings.piIP).toUpperCase()
-    def porthex = convertPortToHex(settings.piPort)
+    def iphex = convertIPtoHex(settings.pyServerIP).toUpperCase()
+    def porthex = convertPortToHex(settings.pyServerPort)
     return "$iphex:$porthex"
 }
 
