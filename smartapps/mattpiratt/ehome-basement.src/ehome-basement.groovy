@@ -19,9 +19,9 @@ definition(
         author: "Bartosz Kubek",
         description: "Smart App for eHome basement controller.",
         category: "Safety & Security",
-        iconUrl: "http://download.easyicon.net/png/1161404/64/",
-        iconX2Url: "http://download.easyicon.net/png/1161404/128/",
-        iconX3Url: "http://download.easyicon.net/png/1161404§   /128/")
+        iconUrl: "https://www.easyicon.net/download/png/1161404/64/",
+        iconX2Url: "https://www.easyicon.net/download/png/1161404/128/",
+        iconX3Url: "https://www.easyicon.net/download/png/1161404/128/")
 
 
 preferences {
