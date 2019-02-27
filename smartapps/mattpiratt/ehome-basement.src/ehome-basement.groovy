@@ -29,6 +29,7 @@ preferences {
     section("eHome pyServer Setup"){
         input "pyServerIP", "text", "title": "pyServer address", multiple: false, required: true
         input "pyServerPort", "text", "title": "pyServer Port", multiple: false, required: true
+        input "pyServerPass", "text", "title": "pyServer API Key", multiple: false, required: true
         input "theHub", "hub", title: "On which hub?", multiple: false, required: true
     }
 }
@@ -208,28 +209,32 @@ def uninstalled() {
 def response(evt){
     log.debug "response()"
     def msg = parseLanMessage(evt.description);
-    if(msg && msg.body){
-        log.debug "response(): json runningWaterPump: ${msg.json.runningWaterPump}; floorHeatingPump: ${msg.json.floorHeatingPump}; " +
-                "radiatorsPump: ${msg.json.radiatorsPump}; intTemp1: ${msg.json.intTemp1}; extTemp: ${msg.json.extTemp}; " +
-                "waterTemp: ${msg.json.waterTemp}; stoveTemp: ${msg.json.stoveTemp}; stoveCoalLvl: ${msg.json.stoveCoalLvl}"
+    try {
+        if (msg.json.radiatorsPump) {
+            log.debug "response(): json runningWaterPump: ${msg.json.runningWaterPump}; floorHeatingPump: ${msg.json.floorHeatingPump}; " +
+                    "radiatorsPump: ${msg.json.radiatorsPump}; intTemp1: ${msg.json.intTemp1}; extTemp: ${msg.json.extTemp}; " +
+                    "waterTemp: ${msg.json.waterTemp}; stoveTemp: ${msg.json.stoveTemp}; stoveCoalLvl: ${msg.json.stoveCoalLvl}"
 
-        if(msg.json) {
-            def children = getChildDevices(false)
-            msg.json.each { item ->
-                log.debug "response(): each() item.key: ${item.key}; item.value: ${item.value}; children: ${children}"
+            if (msg.json) {
+                def children = getChildDevices(false)
+                msg.json.each { item ->
+                    log.debug "response(): each() item.key: ${item.key}; item.value: ${item.value}; children: ${children}"
 
-                if( relaysConfig[item.key]) {
-                    updateRelayDevice(item.key, item.value, children);
-                } else if( thermometerConfig[item.key]) {
-                    updateThermometerDevice(item.key, item.value, children);
-                } else if( item.key == "stoveCoalLvl" || item.key == "stoveTemp" ) {
-                    updateStoveDevice(item.key, item.value, children);
+                    if (relaysConfig[item.key]) {
+                        updateRelayDevice(item.key, item.value, children);
+                    } else if (thermometerConfig[item.key]) {
+                        updateThermometerDevice(item.key, item.value, children);
+                    } else if (item.key == "stoveCoalLvl" || item.key == "stoveTemp") {
+                        updateStoveDevice(item.key, item.value, children);
+                    }
                 }
+
+                log.trace "response(): Finished seting Relay virtual switches"
             }
 
-            log.trace "response(): Finished seting Relay virtual switches"
         }
-
+    } catch (NullPointerException e) {
+        log.debug "There is an ERROR response!: " + msg.body
     }
 }
 
@@ -318,7 +323,7 @@ def executeRequestToPyServer(Path, method, params=[]) {
     try {
         def actualAction = new physicalgraph.device.HubAction(
                 method: method,
-                path: "/api/X7upsk8tkEfbe3JG1Iu09"+Path,
+                path: "/api/$settings.pyServerPass"+Path,
                 headers: headers,
                 body: params
         )
@@ -331,22 +336,3 @@ def executeRequestToPyServer(Path, method, params=[]) {
     }
 }
 
-/* Helper functions to get the network device ID */
-private String NetworkDeviceId(){
-    def iphex = convertIPtoHex(settings.pyServerIP).toUpperCase()
-    def porthex = convertPortToHex(settings.pyServerPort)
-    return "$iphex:$porthex"
-}
-
-private String convertIPtoHex(ipAddress) {
-    String hex = ipAddress.tokenize( '.' ).collect {  String.format( '%02x', it.toInteger() ) }.join()
-    //log.debug "IP address entered is $ipAddress and the converted hex code is $hex"
-    return hex
-
-}
-
-private String convertPortToHex(port) {
-    String hexport = port.toString().format( '%04x', port.toInteger() )
-    //log.debug hexport
-    return hexport
-}
