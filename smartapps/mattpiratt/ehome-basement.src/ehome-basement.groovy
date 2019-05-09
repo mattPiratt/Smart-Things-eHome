@@ -64,7 +64,7 @@ def installed() {
 def initialize() {
     log.debug "initialize()"
 
-    subscribe(location, null, response, [filterEvents:false])
+    subscribe(location, null, responseHandler, [filterEvents:false])
 
     relaysConfig.each { deviceCodeName, deviceConfig ->
         setupVirtualDevice(deviceConfig['name'], "switch", deviceCodeName, deviceConfig['defaultState']);
@@ -96,7 +96,7 @@ def updated() {
 
     updateDevicesStatePeriodically();
 
-    subscribe(location, null, response, [filterEvents:false])
+    subscribe(location, null, responseHandler, [filterEvents:false])
 }
 
 def updateVirtualDevice(deviceName, deviceType, deviceCodeName, defaultState="on") {
@@ -206,19 +206,20 @@ def uninstalled() {
     }
 }
 
-def response(evt){
-    log.debug "response()"
-    def msg = parseLanMessage(evt.description);
+def responseHandler(evt){
+    log.debug "responseHandler()"
     try {
-        if (msg.json.radiatorsPump) {
-            log.debug "response(): json runningWaterPump: ${msg.json.runningWaterPump}; floorHeatingPump: ${msg.json.floorHeatingPump}; " +
+        def msg = parseLanMessage(evt.description);
+
+        if (msg.json?.radiatorsPump) {
+            log.debug "responseHandler(): json runningWaterPump: ${msg.json.runningWaterPump}; floorHeatingPump: ${msg.json.floorHeatingPump}; " +
                     "radiatorsPump: ${msg.json.radiatorsPump}; intTemp1: ${msg.json.intTemp1}; extTemp: ${msg.json.extTemp}; " +
                     "waterTemp: ${msg.json.waterTemp}; stoveTemp: ${msg.json.stoveTemp}; stoveCoalLvl: ${msg.json.stoveCoalLvl}"
 
             if (msg.json) {
                 def children = getChildDevices(false)
                 msg.json.each { item ->
-                    log.debug "response(): each() item.key: ${item.key}; item.value: ${item.value}; children: ${children}"
+                    log.debug "responseHandler(): each() item.key: ${item.key}; item.value: ${item.value}; children: ${children}"
 
                     if (relaysConfig[item.key]) {
                         updateRelayDevice(item.key, item.value, children);
@@ -229,12 +230,12 @@ def response(evt){
                     }
                 }
 
-                log.trace "response(): Finished seting Relay virtual switches"
+                log.trace "responseHandler(): Finished seting Relay virtual switches"
             }
-
         }
     } catch (NullPointerException e) {
-        log.debug "There is an ERROR response!: " + msg.body
+        log.debug "responseHandler(): There is an ERROR in responseHandler()!: "
+        log.debug msg
     }
 }
 
