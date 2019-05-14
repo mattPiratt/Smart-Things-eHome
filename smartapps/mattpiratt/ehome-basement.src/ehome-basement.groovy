@@ -207,7 +207,6 @@ def uninstalled() {
 }
 
 def responseHandler(evt){
-    log.debug "responseHandler()"
     try {
         def msg = parseLanMessage(evt.description);
 
@@ -273,7 +272,7 @@ def updateStoveDevice(attributeName, attributeValue, childDevices){
 def updateDevicesStatePeriodically() {
     log.trace "updateDevicesStatePeriodically(): Poll info about relays and termomethers state from pyServer"
     getDevicesStateFromPyServer();
-    runIn(60*10, updateDevicesStatePeriodically);
+    runEvery10Minutes(updateDevicesStatePeriodically);
 }
 
 def switchChangeOrRefresh(evt){
