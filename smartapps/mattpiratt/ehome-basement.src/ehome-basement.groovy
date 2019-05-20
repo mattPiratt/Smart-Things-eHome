@@ -127,7 +127,7 @@ def updateVirtualDevice(deviceName, deviceType, deviceCodeName, defaultState="on
         log.debug "updateVirtualDevice(): Found existing device which we will now update: label: ${theDevice.label}, name: ${theDevice.name}"
 
         if(deviceType == "switch") { // Actions specific for the relay device type
-            subscribe(theDevice, "switch", switchChangeOrRefresh)
+            subscribe(theDevice, "switch", switchStateChange)
             log.debug "updateVirtualDevice(): Setting initial state of $deviceName to ${defaultState}"
             setDeviceStateOnPyServer(deviceCodeName, defaultState);
             if( defaultState == "on") {
@@ -156,7 +156,7 @@ def setupVirtualDevice(deviceName, deviceType, deviceCodeName, defaultState="on"
             case "switch":
                 log.trace "setupVirtualDevice(): Setting up a eHome Basement Relay called $deviceName with Device ID #$deviceCodeName"
                 def theDevice = addChildDevice("mattPiratt", "eHome Basement Relay", getRelayID(deviceCodeName), theHub.id, [label:deviceName, name:deviceName])
-                subscribe(theDevice, "switch", switchChangeOrRefresh)
+                subscribe(theDevice, "switch", switchStateChange)
 
                 log.debug "setupVirtualDevice(): Setting initial state of ${deviceName} at pyServer into ${defaultState}"
                 setDeviceStateOnPyServer(deviceCodeName, defaultState);
@@ -241,7 +241,7 @@ def responseHandler(evt){
 def updateRelayDevice(attributeName, newState, childDevices) {
     def theSwitch = childDevices.find{ d -> d.deviceNetworkId.endsWith(".$attributeName") }
     if(theSwitch) {
-        log.debug "updateRelayDevice(): Updating switch $theSwitch for Device ID $attributeName with value $newState"
+        log.debug "updateRelayDevice(): Updating switch $theSwitch for deviceNetworkId: ${theSwitch.deviceNetworkId} with value $newState"
         theSwitch.changeSwitchState(newState)
     }
 }
@@ -249,7 +249,7 @@ def updateRelayDevice(attributeName, newState, childDevices) {
 def updateThermometerDevice(attributeName, temperature, childDevices){
     def theThermometer = childDevices.find{ d -> d.deviceNetworkId.endsWith(".$attributeName") }
     if(theThermometer) {
-        log.debug "updateThermometerDevice(): Updating thermometer $theThermometer for Device ID $attributeName with value $temperature"
+        log.debug "updateThermometerDevice(): Updating thermometer $theThermometer for deviceNetworkId: ${theThermometer.deviceNetworkId} with value $temperature"
         theThermometer.setTemperature(temperature,state.temperatureZone)
     }
 }
@@ -258,11 +258,11 @@ def updateStoveDevice(attributeName, attributeValue, childDevices){
     if(theDevice) {
         switch(attributeName) {
             case "stoveCoalLvl":
-                log.debug "updateStoveDevice B(): Updating coal level of $theDevice for Device ID .stove with value $attributeValue"
+                log.debug "updateStoveDevice(): Updating coal level of $theDevice for deviceNetworkId: ${theDevice.deviceNetworkId} with value $attributeValue"
                 theDevice.setLevel(attributeValue)
                 break;
             case "stoveTemp":
-                log.debug "updateStoveDevice B(): Updating temperature of $theDevice for Device ID .stove with value $attributeValue"
+                log.debug "updateStoveDevice(): Updating temperature of $theDevice for deviceNetworkId: ${theDevice.deviceNetworkId} with value $attributeValue"
                 theDevice.setTemperature(attributeValue)
                 break;
         }
@@ -275,25 +275,13 @@ def updateDevicesStatePeriodically() {
     runEvery10Minutes(updateDevicesStatePeriodically);
 }
 
-def switchChangeOrRefresh(evt){
-    if(evt.value == "on" || evt.value == "off") return;
-    // TODO: więc DTH wysyła zawsze 2 eventy. po co skotro tutaj i tak jest jeden zawsze ignorowany. Powinien ten zwykły wystarczy
-    log.debug "switchChangeOrRefresh(): evt: ${evt}; evt.value: ${evt.value}"
-
-    def parts = evt.value.tokenize('.');
-    def deviceCodeName = parts[1];
-    def state = parts.last();
-
-    log.debug "switchChangeOrRefresh(): state: ${state}; parts: ${parts}; deviceCodeName: ${deviceCodeName}"
-
-    switch(state){
-        case "refresh":
-            log.debug "switchChangeOrRefresh(): Refreshing the state of All/This one (?) relay switch"
-            getDevicesStateFromPyServer();
-            return;
-        default:
-            setDeviceStateOnPyServer(deviceCodeName, state);
-            return;
+def switchStateChange(evt){
+    log.debug "switchStateChange(): evt: ${evt}; evt.value: ${evt.value}"
+    if(evt.value == "on" || evt.value == "off") {
+        def parts = evt.device.deviceNetworkId.tokenize('.');
+        def deviceCodeName = parts[1];
+        log.debug "switchStateChange(): state: ${evt.value}; parts: ${parts}; deviceCodeName: ${deviceCodeName}"
+        setDeviceStateOnPyServer(deviceCodeName, evt.value);
     }
 }
 

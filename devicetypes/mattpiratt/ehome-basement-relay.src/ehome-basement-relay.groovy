@@ -17,8 +17,6 @@
 metadata {
     definition (name: "eHome Basement Relay", namespace: "mattPiratt", author: "Bartosz Kubek") {
         capability "Switch"
-        capability "Refresh"
-
         command "changeSwitchState", ["string"]
     }
 
@@ -33,7 +31,7 @@ metadata {
         }
 
         main "switch"
-        details (["switch", "refresh"])
+        details (["switch"])
     }
 }
 
@@ -44,13 +42,11 @@ def parse(String description) {
 
 def on() {
     log.debug "Executing 'on'"
-    sendEvent(name: "switch", value: device.deviceNetworkId + ".on");
     sendEvent(name: "switch", value: "on");
 }
 
 def off() {
     log.debug "Executing 'off'"
-    sendEvent(name: "switch", value: device.deviceNetworkId + ".off");
     sendEvent(name: "switch", value: "off");
 }
 
@@ -58,10 +54,10 @@ def changeSwitchState(newState) {
     log.trace "Received update that this switch is now $newState"
     switch(newState) {
         case 1:
-            sendEvent(name: "switch", value: "on")
+            on();
             break;
         case 0:
-            sendEvent(name: "switch", value: "off")
+            off();
             break;
     }
 }

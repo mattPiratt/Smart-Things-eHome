@@ -17,12 +17,8 @@
 metadata {
     definition (name: "eHome Basement Stove", namespace: "mattPiratt", author: "Bartosz Kubek") {
         capability "Sensor"
-        capability "Refresh"
-        capability "Polling"
         capability "Battery"
         capability "Temperature Measurement"
-        capability "Health Check"
-
         command "setTemperature", ["number"]
         command "setLevel", ["number"]
     }
@@ -42,10 +38,6 @@ metadata {
             )
         }
 
-        standardTile("refresh", "device.refresh", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
-            state("default", label:'refresh', action:"polling.poll", icon:"st.secondary.refresh-icon")
-        }
-
         standardTile("temperature", "device.temperature", decoration: "flat", width: 2, height: 2 ){
             state("temperature", label:'${currentValue}', unit:"°C", icon:"st.Weather.weather2",
                     backgroundColors:[
@@ -57,21 +49,8 @@ metadata {
             )}
 
         main "battery"
-        details (["battery","refresh","temperature"])
+        details (["battery","temperature"])
     }
-}
-
-def installed() {
-    initialize()
-}
-
-def updated() {
-    initialize()
-}
-
-def initialize() {
-    log.debug "Basement Stove: initialize"
-    sendEvent(name: "healthStatus", value: "online")
 }
 
 // parse events into attributes
