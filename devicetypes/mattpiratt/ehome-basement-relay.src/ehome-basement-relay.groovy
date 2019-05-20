@@ -18,7 +18,6 @@ metadata {
     definition (name: "eHome Basement Relay", namespace: "mattPiratt", author: "Bartosz Kubek") {
         capability "Switch"
         capability "Refresh"
-        capability "Polling"
 
         command "changeSwitchState", ["string"]
     }
@@ -26,15 +25,11 @@ metadata {
     simulator {
     }
 
-    tiles {
+    tiles(scale: 2)  {
 
-        standardTile("switch", "device.switch", width: 1, height: 1, canChangeIcon: true) {
+        standardTile("switch", "device.switch", width: 6, height: 4,canChangeIcon: true) {
             state "on", label:'${name}', action:"switch.off", icon:"st.switches.switch.on", backgroundColor:"#79b821"
             state "off", label:'${name}', action:"switch.on", icon:"st.switches.switch.off", backgroundColor:"#ffffff"
-        }
-
-        standardTile("refresh", "device.refresh", inactiveLabel: false, decoration: "flat", width: 1, height: 1) {
-            state("default", label:'refresh', action:"polling.poll", icon:"st.secondary.refresh-icon")
         }
 
         main "switch"
@@ -45,19 +40,6 @@ metadata {
 // parse events into attributes
 def parse(String description) {
     log.debug "Virtual siwtch parsing '${description}'"
-}
-
-//I thinks I do not need pooling from relays
-def poll() {
-    log.debug "Executing 'poll'"
-    def lastState = device.currentValue("switch")
-    sendEvent(name: "switch", value: device.deviceNetworkId + ".refresh")
-    sendEvent(name: "switch", value: lastState);
-}
-
-def refresh() {
-    log.debug "Executing 'refresh'"
-    poll();
 }
 
 def on() {
