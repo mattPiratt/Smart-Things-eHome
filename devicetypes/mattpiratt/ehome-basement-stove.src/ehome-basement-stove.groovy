@@ -19,6 +19,8 @@ metadata {
         capability "Sensor"
         capability "Battery"
         capability "Temperature Measurement"
+        capability "Switch"
+        command "changeSwitchState", ["string"]
         command "setTemperature", ["number"]
         command "setLevel", ["number"]
     }
@@ -48,8 +50,16 @@ metadata {
                     ]
             )}
 
+        standardTile("coalLvlReset2", "device.switch", width: 2, height: 2,canChangeIcon: true) {
+            state "on", label: 'Reset coal level', action: "switch.off",
+                    icon:"st.secondary.refresh-icon", backgroundColor: "#ffffff", defaultState: true
+            state "off", label: 'Reset coal level', action: "switch.on",
+                    icon:"st.secondary.refresh-icon", backgroundColor: "#ffffff", defaultState: true
+
+        }
+
         main "battery"
-        details (["battery","temperature"])
+        details (["battery","temperature","coalLvlReset", "coalLvlReset2"])
     }
 }
 
@@ -68,3 +78,28 @@ def setLevel(val) {
     sendEvent(name: 'battery', value: val, unit: "%", descriptionText: "Coal level is ${val}%.")
 
 }
+
+
+def on() {
+    log.debug "Executing 'on', but in real: Basement Stove: reset."
+    sendEvent(name: "switch", value: "on");
+}
+
+def off() {
+    log.debug "Executing 'off', but in real: Basement Stove: reset."
+    sendEvent(name: "switch", value: "off");
+}
+
+def changeSwitchState(newState) {
+    log.trace "Received update that this sotve should have coal level being reset (fake state: ${newState})"
+    switch(newState) {
+        case 1:
+            on();
+            break;
+        case 0:
+            off();
+            break;
+    }
+}
+
+
