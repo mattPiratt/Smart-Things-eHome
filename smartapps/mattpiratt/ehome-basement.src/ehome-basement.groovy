@@ -44,7 +44,7 @@ def getRelaysConfig() {
 };
 def getThermometerConfig() {
     return [
-            "intTemp1": [name: "Internal Temperature sensor"],
+//            "intTemp1": [name: "Internal Temperature sensor"],
             "extTemp": [name: "External Temperature sensor"],
             "waterTemp": [name: "Running Water Temperature sensor"]
     ]
