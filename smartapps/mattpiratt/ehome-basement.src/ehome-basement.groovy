@@ -321,7 +321,7 @@ def setDeviceStateOnPyServer(deviceCodeName, state) {
 //    log.debug "setDeviceStateOnPyServer(): deviceCodeName: ${deviceCodeName}; state: ${state}";
 
     def Path = "/setFlag";
-    def val = (state == "on") ? "4" : "0";
+    def val = (state == "on") ? true : false;
     executeRequestToPyServer(Path, "POST", ["flag":deviceCodeName,"value":val]);
 }
 
