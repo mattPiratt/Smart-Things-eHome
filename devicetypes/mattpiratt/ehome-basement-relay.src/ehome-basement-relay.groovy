@@ -53,10 +53,10 @@ def off() {
 def changeSwitchState(newState) {
     log.trace "Received update that this switch is now $newState"
     switch(newState) {
-        case 1:
+        case true:
             on();
             break;
-        case 0:
+        case false:
             off();
             break;
     }

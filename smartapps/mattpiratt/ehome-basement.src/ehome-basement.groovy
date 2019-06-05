@@ -40,6 +40,10 @@ def getRelaysConfig() {
             "runningWaterPump": [name: "Hot water pump", defaultState: "off"],
             "floorHeatingPump": [name: "Floor heating pump", defaultState: "on"],
             "radiatorsPump": [name: "Radiators pump", defaultState: "on"],
+            "sprinklerZone1Active": [name: "Sprinkler zone 1", defaultState: "off"],
+            "sprinklerZone2Active": [name: "Sprinkler zone 2", defaultState: "off"],
+            "sprinklerZone3Active": [name: "Sprinkler zone 3", defaultState: "off"],
+            "sprinklerZone4Active": [name: "Sprinkler zone 4", defaultState: "off"],
     ]
 };
 def getThermometerConfig() {
@@ -220,7 +224,9 @@ def responseHandler(evt){
         if (msg.json?.radiatorsPump) {
             log.debug "responseHandler(): json runningWaterPump: ${msg.json.runningWaterPump}; floorHeatingPump: ${msg.json.floorHeatingPump}; " +
                     "radiatorsPump: ${msg.json.radiatorsPump}; intTemp1: ${msg.json.intTemp1}; extTemp: ${msg.json.extTemp}; " +
-                    "waterTemp: ${msg.json.waterTemp}; stoveTemp: ${msg.json.stoveTemp}; stoveCoalLvl: ${msg.json.stoveCoalLvl}"
+                    "waterTemp: ${msg.json.waterTemp}; stoveTemp: ${msg.json.stoveTemp}; stoveCoalLvl: ${msg.json.stoveCoalLvl}; " +
+                    "sprinklerZone1Active: ${msg.json.sprinklerZone1Active}; sprinklerZone2: ${msg.json.sprinklerZone2Active}; " +
+                    "sprinklerZone3Active: ${msg.json.sprinklerZone3Active}; sprinklerZone4: ${msg.json.sprinklerZone4Active}; "
 
             if (msg.json) {
                 def children = getChildDevices(false)
