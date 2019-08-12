@@ -68,6 +68,9 @@ def installed() {
 def initialize() {
 //    log.debug "initialize()"
 
+    //init timestamp of last BoulerHouse write request
+    state.bhts = now()
+
     subscribe(location, null, responseHandler, [filterEvents:false])
 
     relaysConfig.each { deviceCodeName, deviceConfig ->
@@ -87,6 +90,9 @@ def updated() {
 //    log.debug "Updated(): with settings: ${settings}"
 
     unsubscribe();
+
+    //init timestamp of last BoulerHouse write request
+    state.bhts = now()
 
     relaysConfig.each { deviceCodeName, deviceConfig ->
         updateVirtualDevice(deviceConfig['name'], "switch", deviceCodeName, deviceConfig['defaultState']);
@@ -220,14 +226,17 @@ def uninstalled() {
 def responseHandler(evt){
     try {
         def msg = parseLanMessage(evt.description);
+        log.debug "responseHandler/msg:${msg}"
+//        log.debug "responseHandler/data:${parseJson(evt.data)}"
+//        log.debug "responseHandler/device:${evt.device}"
+//        log.debug "responseHandler/displayName:${evt.displayName}"
+//        log.debug "responseHandler/deviceId:${evt.deviceId}"
+//        log.debug "responseHandler/name:${evt.name}"
+//        log.debug "responseHandler/surce:${evt.source}"
+//        log.debug "responseHandler/stringValue:${evt.stringValue}"
+//        log.debug "responseHandler/isStateChange:${evt.isStateChange()}"
 
         if (msg.json?.radiatorsPump) {
-            log.debug "responseHandler(): json runningWaterPump: ${msg.json.runningWaterPump}; floorHeatingPump: ${msg.json.floorHeatingPump}; " +
-                    "radiatorsPump: ${msg.json.radiatorsPump}; intTemp1: ${msg.json.intTemp1}; extTemp: ${msg.json.extTemp}; " +
-                    "waterTemp: ${msg.json.waterTemp}; stoveTemp: ${msg.json.stoveTemp}; stoveCoalLvl: ${msg.json.stoveCoalLvl}; " +
-                    "sprinklerZone1Active: ${msg.json.sprinklerZone1Active}; sprinklerZone2: ${msg.json.sprinklerZone2Active}; " +
-                    "sprinklerZone3Active: ${msg.json.sprinklerZone3Active}; sprinklerZone4: ${msg.json.sprinklerZone4Active}; "
-
             if (msg.json) {
                 def children = getChildDevices(false)
                 msg.json.each { item ->
@@ -319,15 +328,25 @@ def coalLevelReset(evt){
 def getDevicesStateFromPyServer() {
 //    log.debug "getDevicesStateFromPyServer():";
 
-    def Path = "/bh/getCurrent";
-    executeRequestToPyServer(Path, "GET");
+    def lastBHWriteTSPlus10s = state.bhts + 10000
+
+    if( lastBHWriteTSPlus10s < now() ) {
+        log.debug "getDevicesStateFromPyServer(): IS REQUEST! bhts: ${state.bhts}; " +
+                "lastBHWriteTSPlus10s: ${lastBHWriteTSPlus10s}"
+        def Path = "/bh/getCurrent";
+        executeRequestToPyServer(Path, "GET");
+    } else {
+        log.debug "getDevicesStateFromPyServer(): No request! bhts: ${state.bhts}; " +
+                "lastBHWriteTSPlus10s: ${lastBHWriteTSPlus10s}"
+    }
 }
 
-def setDeviceStateOnPyServer(deviceCodeName, state) {
-//    log.debug "setDeviceStateOnPyServer(): deviceCodeName: ${deviceCodeName}; state: ${state}";
-
+def setDeviceStateOnPyServer(deviceCodeName, evtState) {
     def Path = "/setFlag";
-    def val = (state == "on") ? true : false;
+    def val = (evtState == "on") ? true : false;
+    state.bhts = now()
+    log.debug "setDeviceStateOnPyServer(): deviceCodeName: ${deviceCodeName}; " +
+            "state: ${evtState}; bhts: ${state.bhts}";
     executeRequestToPyServer(Path, "POST", ["flag":deviceCodeName,"value":val]);
 }
 
