@@ -329,10 +329,11 @@ def getDevicesStateFromPyServer() {
 //    log.debug "getDevicesStateFromPyServer():";
 
     def lastBHWriteTSPlus10s = state.bhts + 10000
+    def nowTS = now()
 
-    if( lastBHWriteTSPlus10s < now() ) {
+    if( lastBHWriteTSPlus10s < nowTS ) {
         log.debug "getDevicesStateFromPyServer(): IS REQUEST! bhts: ${state.bhts}; " +
-                "lastBHWriteTSPlus10s: ${lastBHWriteTSPlus10s}"
+                "lastBHWriteTSPlus10s: ${lastBHWriteTSPlus10s}; nowTS: ${nowTS}"
         def Path = "/bh/getCurrent";
         executeRequestToPyServer(Path, "GET");
     } else {
